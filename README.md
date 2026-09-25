@@ -272,4 +272,4 @@ The Render free instance may spin down after inactivity, so its first request in
 
 ## Time spent
 
-Record actual development time: **5-6 hours**
+development time: **5-6 hours**
