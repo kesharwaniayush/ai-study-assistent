@@ -23,21 +23,66 @@ An AI-powered study tool that turns a topic or notes into an interactive multipl
 - Node.js and Express
 - Gemini API
 
-## Architecture
+## End-to-end application flow
 
-```text
-Student enters notes or a topic
-             ↓
-      React application
-             ↓ POST /api/generate-quiz
-       Express backend
-             ↓ prompt + JSON response schema
-         Gemini API
-             ↓ structured JSON
- Server parses and validates the response
-             ↓
- Frontend validates and renders the quiz
+This flowchart shows how a study request travels through the React app, Express API, and Gemini, then how the quiz is answered, scored, and retried.
+
+```mermaid
+flowchart TD
+    subgraph React[React frontend]
+        A[PromptInput.jsx: enter notes or topic, count, difficulty]
+        B{Input valid?}
+        B1[Show input validation message]
+        C[App.jsx: create request ID and show loading state]
+        D[lib/api.js: POST request with 45-second timeout]
+        E{Response belongs to newest request?}
+        E1[Ignore stale response]
+        F[validateQuiz: validate response shape]
+        G{Quiz valid?}
+        H[ErrorState.jsx: show friendly error and retry]
+        I[QuizView.jsx: show question and four options]
+        J[Select one answer and submit]
+        K[Show correct or incorrect, correct answer, and explanation]
+        L{More questions?}
+        M[ResultView.jsx: score, percentage, and review]
+        N{Retry wrong answers?}
+        O[Filter recorded answers and reuse missed questions]
+        P[Generate a new quiz]
+    end
+
+    subgraph API[Node.js and Express backend]
+        Q[POST /api/generate-quiz]
+        R[Validate input, question count, and difficulty]
+        S[Build strict prompt and JSON response schema]
+        T[Parse and validate Gemini JSON]
+        U{Backend quiz validation passes?}
+    end
+
+    subgraph Model[AI provider]
+        V[Gemini API]
+        W[Return structured quiz JSON]
+    end
+
+    A --> B
+    B -- No --> B1 --> A
+    B -- Yes --> C --> D --> Q
+    D -. Network, HTTP, or timeout error .-> H
+    Q --> R --> S --> V --> W --> T --> U
+    R -. Invalid request .-> H
+    U -- No: invalid or empty JSON --> H
+    U -- Yes --> E
+    E -- No --> E1
+    E -- Yes --> F --> G
+    G -- No --> H
+    G -- Yes --> I --> J --> K --> L
+    L -- Yes --> I
+    L -- No --> M --> N
+    N -- Yes --> O --> I
+    N -- No: generate new quiz --> P --> A
+    H -- Retry --> C
 ```
+
+The browser calls only the Express API. Gemini is called from the backend, so the Gemini API key is never included in the frontend bundle. Retry Wrong Answers reuses the validated question objects and does not call the AI provider again.
 
 The browser calls only the Express API. Gemini is called from the backend, so the Gemini API key is never included in the frontend bundle.
 
