@@ -148,7 +148,7 @@ export default function App() {
       )}
       {view === 'empty' && <EmptyState onCreate={showInput} />}
       <footer className="site-footer">
-        <span>© 2025 studymate</span>
+        <span>© 2026 studymate</span>
         <span>
           Made for the joy of figuring it out <i>✳</i>
         </span>
