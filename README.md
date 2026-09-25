@@ -273,3 +273,7 @@ The Render free instance may spin down after inactivity, so its first request in
 ## Time spent
 
 development time: **5-6 hours**
+
+## AI Usage note
+
+AI tools were used during development to help identify and fix bugs and provide implementation assistance. I reviewed the generated suggestions and used them to support my understanding of the final code.
