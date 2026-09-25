@@ -1,123 +1,230 @@
 # AI Study Assistant
 
-## Overview
+An AI-powered study tool that turns a topic or notes into an interactive multiple-choice quiz. It is designed as a focused quiz experience, not a chatbot: the backend requests structured JSON from Gemini, validates it, and the React frontend renders the questions and feedback.
 
-AI Study Assistant turns a topic or your own study notes into a short, interactive multiple-choice quiz. It is a focused study tool rather than a chat interface: the model returns quiz data, and the React app validates and presents it as answer choices, explanations, and a results review.
+- **Live app:** [ai-study-assistent-ruby.vercel.app](https://ai-study-assistent-ruby.vercel.app)
+- **API health check:** [ai-study-assistent-ltj9.onrender.com/api/health](https://ai-study-assistent-ltj9.onrender.com/api/health)
 
 ## Features
 
-- Free-form study input, with 5 or 10 questions and three difficulty levels
-- AI-generated structured quizzes and immediate answer feedback
-- Score tracking, question review, and retry for missed questions using the existing quiz data
-- Clear empty, loading, network, timeout, and invalid-response states
-- Server-side and frontend validation of AI output
-- Request timeout and stale response protection
+- Enter a topic or paste free-form study notes
+- Generate 5- or 10-question quizzes at Easy, Medium, or Hard difficulty
+- Answer multiple-choice questions with immediate feedback and explanations
+- Track your score and review answers at the end
+- Retry only missed questions without making another AI request
+- Loading, empty, network, timeout, server, and invalid-response states
+- Server-side and frontend validation of AI-generated quiz data
+- Stale-request protection so older requests cannot replace newer results
 - Responsive, keyboard-accessible interface
 
 ## Tech stack
 
 - React 18, Vite, JavaScript, and CSS
 - Node.js and Express
-- Gemini API (called by the server only)
+- Gemini API
 
 ## Architecture
 
 ```text
-Student input
-     ↓
-React interface ── POST /api/generate-quiz ──→ Express server
-     ↑                                              ↓
-Interactive quiz ← validated JSON ← Gemini API (server-side key)
+Student enters notes or a topic
+             ↓
+      React application
+             ↓ POST /api/generate-quiz
+       Express backend
+             ↓ prompt + JSON response schema
+         Gemini API
+             ↓ structured JSON
+ Server parses and validates the response
+             ↓
+ Frontend validates and renders the quiz
 ```
 
-The Express endpoint builds a constrained prompt and asks Gemini for `application/json` with a response schema. The server parses and validates the provider response before returning it. The frontend validates it again before changing into the quiz state. The API key remains in the server environment and is never included in Vite or browser code.
+The browser calls only the Express API. Gemini is called from the backend, so the Gemini API key is never included in the frontend bundle.
 
-## Setup
+## Quiz response format
 
-Requirements: Node.js 20.19 or newer and an internet connection for the Gemini API.
+A request to POST /api/generate-quiz includes the study input, requested question count, and difficulty:
 
-1. Install dependencies from this directory:
+```json
+{
+  "input": "Java inheritance",
+  "questionCount": 5,
+  "difficulty": "Medium"
+}
+```
+
+The API returns a quiz object in this format:
+
+```json
+{
+  "title": "Java Inheritance",
+  "topic": "Inheritance in Java",
+  "difficulty": "Medium",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Which keyword allows a Java class to inherit from another class?",
+      "options": ["extends", "implements", "inherits", "super"],
+      "correctAnswer": 0,
+      "explanation": "A class uses the extends keyword to inherit from another class."
+    }
+  ]
+}
+```
+
+A complete quiz contains exactly the requested number of questions. Every question has exactly four options, and correctAnswer is the zero-based index of the correct option.
+
+## Validation and error handling
+
+The backend validates the provider output before returning it. The frontend validates the response again before rendering anything. Validation checks required text fields, allowed difficulty, question count, four non-empty options, answer index, and explanation. Invalid data is rejected as a whole.
+
+The API layer handles network failures, unsuccessful HTTP responses, malformed JSON, empty responses, and a 45-second timeout. The UI shows a friendly error and retry action. Each request receives an ID stored with useRef; only the newest request can update the screen.
+
+## Quiz state and retry
+
+React Hooks manage the current screen, quiz, selected answers, feedback, score, and errors. After the last question, the result view shows the score and a review of each answer. Retry Wrong Answers filters the existing quiz using the recorded answers and starts a quiz with only the missed questions. It does not call Gemini again.
+
+## Project structure
+
+```text
+.
+├── src/
+│   ├── components/
+│   │   ├── EmptyState.jsx
+│   │   ├── ErrorState.jsx
+│   │   ├── Header.jsx
+│   │   ├── LoadingState.jsx
+│   │   ├── ProgressBar.jsx
+│   │   ├── PromptInput.jsx
+│   │   ├── QuestionCard.jsx
+│   │   ├── QuestionReview.jsx
+│   │   ├── QuizView.jsx
+│   │   └── ResultView.jsx
+│   ├── lib/
+│   │   ├── api.js
+│   │   └── validateResult.js
+│   ├── App.jsx
+│   ├── index.css
+│   └── main.jsx
+├── server/
+│   └── server.js
+├── .env.example
+├── index.html
+├── package.json
+└── README.md
+```
+
+## Run locally
+
+Requirements: Node.js 20.19 or newer and a Gemini API key.
+
+1. Clone the repository and enter its folder:
+
+   ```bash
+   git clone https://github.com/kesharwaniayush/ai-study-assistent.git
+   cd ai-study-assistent
+   ```
+
+2. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Copy `.env.example` to `.env` and add a Gemini API key from Google AI Studio:
+3. Create a local environment file.
+
+   **Windows PowerShell:**
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+   **macOS / Linux:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Add your Gemini key to .env:
 
    ```env
-   GEMINI_API_KEY=your_real_key_here
+   GEMINI_API_KEY=your_gemini_api_key
    GEMINI_MODEL=gemini-3.5-flash-lite
    PORT=3001
    ```
 
-   `.env` is ignored by Git. Keep the key in this file; do not put it in any `src/` file or Vite variable.
+   Keep the real key private. The .env file is ignored by Git.
 
-3. Start the frontend and backend together:
+5. Start the frontend and backend together:
 
    ```bash
    npm run dev
    ```
 
-   Open the Vite URL printed in the terminal (usually `http://localhost:5173`). On localhost, the frontend calls Express on port 3001 directly, including when using `npm run preview`.
+   Open the Vite URL printed in the terminal, usually http://localhost:5173. During local development, the frontend calls the API at http://localhost:3001.
 
-4. Create a production frontend build:
+## Available commands
 
-   ```bash
-   npm run build
-   ```
+| Command              | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| npm run dev          | Start the Vite frontend and Express backend together |
+| npm run dev:client   | Start only the frontend                              |
+| npm run dev:server   | Start only the backend                               |
+| npm run build        | Build the frontend into dist/                        |
+| npm run preview      | Preview the built frontend locally                   |
+| npm start            | Start the Express API                                |
+| npm test             | Run the validation tests                             |
+| npm run format       | Format source and project files                      |
+| npm run format:check | Check formatting                                     |
 
-   To run only the API use `npm run dev:server`. To serve the API in production use `npm start`.
+## API endpoints
 
-## Deploy frontend on Vercel and API on Render
+### GET /api/health
 
-1. Deploy the Express service on Render and set `GEMINI_API_KEY` there. Set `GEMINI_MODEL` there if needed; Render provides `PORT` automatically.
-2. In Vercel, set `VITE_API_BASE_URL` to the Render service's base URL, for example `https://your-service.onrender.com` (do not append `/api`). Do not add `GEMINI_API_KEY`, `GEMINI_MODEL`, or `PORT` to Vercel.
-3. Set `FRONTEND_ORIGIN` on Render to the deployed Vercel site origin, for example `https://your-project.vercel.app` (no trailing slash). This allows the browser app to call the API.
-4. Redeploy both services after changing environment variables. Vite reads `VITE_API_BASE_URL` at build time, and Express reads `FRONTEND_ORIGIN` when it starts.
+Returns a small health response:
 
-## Validation and failure handling
+```json
+{ "status": "ok" }
+```
 
-`src/lib/validateResult.js` checks required strings, allowed difficulty, question count, four non-empty options, integer answer indexes, and explanations. Invalid content is rejected as a whole, so partial quiz data is never rendered. The API helper also handles network failures, malformed HTTP JSON, non-success responses, empty payloads, and a 45-second timeout. The server applies its own request validation and a 40-second provider timeout.
+### POST /api/generate-quiz
 
-Each generation increments a `useRef` request ID. A result or error may update the screen only if its ID is still current, which keeps a slower earlier request from replacing the user's latest request. Retry filters the current quiz by the recorded answers and starts a new quiz state with those question objects; it makes no provider request.
+Accepts input, questionCount (5 or 10), and difficulty (Easy, Medium, or Hard). Returns the validated quiz JSON described above, or a JSON error with an appropriate HTTP status.
 
-## AI usage note
+## Deployment
 
-AI tools were used for development assistance, code generation, and implementation review. The final implementation should be reviewed and understood by the developer before submission; the developer should be able to explain the request flow, validation, and state transitions.
+The frontend and backend are deployed separately.
+
+### Backend on Render
+
+- **Service:** [ai-study-assistent-ltj9.onrender.com](https://ai-study-assistent-ltj9.onrender.com)
+- **Build command:** npm install
+- **Start command:** npm start
+- **Environment variables:**
+  - GEMINI_API_KEY: your Gemini API key
+  - GEMINI_MODEL: optional; defaults to gemini-3.5-flash-lite
+  - FRONTEND_ORIGIN: https://ai-study-assistent-ruby.vercel.app
+  - Render provides PORT for the web service
+
+### Frontend on Vercel
+
+- **Framework preset:** Vite
+- **Root directory:** repository root
+- **Environment variable:**
+  - VITE_API_BASE_URL: https://ai-study-assistent-ltj9.onrender.com
+
+VITE_API_BASE_URL is a public API address, not a secret. Do not put GEMINI_API_KEY in Vercel or in frontend source files. Vite reads this variable when building, so create a new Vercel deployment after changing it.
+
+The Render free instance may spin down after inactivity, so its first request in a while may take longer.
 
 ## Known limitations
 
-- Model output can occasionally fail validation; the app asks the user to try again.
-- Quiz quality depends on the detail and accuracy of the supplied topic or notes.
-- Quiz generation requires a valid Gemini API key and provider availability.
-- The quiz is kept in React state for the current session and is not saved after a page refresh.
+- AI-generated content can occasionally fail validation; the user must try again.
+- Quiz quality depends on the accuracy and detail of the supplied notes or topic.
+- Generation depends on Gemini availability, API key validity, and provider quota.
+- Quiz progress is held in React state and is not saved after a page refresh.
+- The free Render service may take longer to respond after inactivity.
 
 ## Time spent
 
-Record actual development time here: ______ hours.
-
-## Interview walkthrough
-
-1. Trace `PromptInput` → `App.startGeneration` → `src/lib/api.js` → `POST /api/generate-quiz`.
-2. Explain why Gemini is called by Express: the API key must not be shipped to browsers.
-3. Show how JSON mode and the response schema shape the model output, then how server and frontend validation reject malformed data.
-4. Walk through `QuizView` state: selected choice, submitted feedback, and final answer list.
-5. Show how `ResultView` computes the score and how `retryWrongAnswers` reuses just the missed question objects.
-6. Demonstrate empty input, a server/API error, a correct answer, a missed answer, and the review screen.
-
-## Tests
-
-Run the validation unit tests with:
-
-```bash
-npm test
-```
-
-Format the editable source and verify formatting with:
-
-```bash
-npm run format
-npm run format:check
-```
-
-For an end-to-end smoke test, configure `.env`, run `npm run dev`, generate a quiz for `Java inheritance`, submit answers, and retry missed questions. Stop the API process to see the network error. A real provider integration test requires a working key and network access.
+Record actual development time: **5-6 hours**
