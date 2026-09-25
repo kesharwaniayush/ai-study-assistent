@@ -6,18 +6,18 @@ const app = express();
 const port = Number(process.env.PORT) || 3001;
 const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const allowedDifficulties = ['Easy', 'Medium', 'Hard'];
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  ...(process.env.FRONTEND_ORIGIN ? [process.env.FRONTEND_ORIGIN.replace(/\/$/, '')] : []),
+]);
 
 app.use(express.json({ limit: '64kb' }));
 app.use((request, response, next) => {
   const origin = request.headers.origin;
-  if (
-    [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:4173',
-      'http://127.0.0.1:4173',
-    ].includes(origin)
-  ) {
+  if (origin && allowedOrigins.has(origin)) {
     response.setHeader('Access-Control-Allow-Origin', origin);
     response.setHeader('Vary', 'Origin');
     response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

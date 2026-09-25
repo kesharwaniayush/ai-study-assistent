@@ -58,7 +58,7 @@ Requirements: Node.js 20.19 or newer and an internet connection for the Gemini A
    npm run dev
    ```
 
-   Open the Vite URL printed in the terminal (usually `http://localhost:5173`). On localhost, the frontend calls Express on port 3001 directly, including when using `npm run preview`. In production on a hosted domain, configure your static host or reverse proxy to route `/api` to Express on the same origin.
+   Open the Vite URL printed in the terminal (usually `http://localhost:5173`). On localhost, the frontend calls Express on port 3001 directly, including when using `npm run preview`.
 
 4. Create a production frontend build:
 
@@ -66,7 +66,14 @@ Requirements: Node.js 20.19 or newer and an internet connection for the Gemini A
    npm run build
    ```
 
-   To run only the API use `npm run dev:server`. To serve the API in production use `npm start`; serve the generated `dist/` directory with a static host configured to proxy `/api` to that server.
+   To run only the API use `npm run dev:server`. To serve the API in production use `npm start`.
+
+## Deploy frontend on Vercel and API on Render
+
+1. Deploy the Express service on Render and set `GEMINI_API_KEY` there. Set `GEMINI_MODEL` there if needed; Render provides `PORT` automatically.
+2. In Vercel, set `VITE_API_BASE_URL` to the Render service's base URL, for example `https://your-service.onrender.com` (do not append `/api`). Do not add `GEMINI_API_KEY`, `GEMINI_MODEL`, or `PORT` to Vercel.
+3. Set `FRONTEND_ORIGIN` on Render to the deployed Vercel site origin, for example `https://your-project.vercel.app` (no trailing slash). This allows the browser app to call the API.
+4. Redeploy both services after changing environment variables. Vite reads `VITE_API_BASE_URL` at build time, and Express reads `FRONTEND_ORIGIN` when it starts.
 
 ## Validation and failure handling
 

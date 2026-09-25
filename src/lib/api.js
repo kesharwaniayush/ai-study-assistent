@@ -1,8 +1,9 @@
 const REQUEST_TIMEOUT_MS = 45_000;
 const localHostnames = ['localhost', '127.0.0.1'];
-const API_BASE_URL = localHostnames.includes(window.location.hostname)
-  ? 'http://localhost:3001'
-  : '';
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/+$/, '');
+const API_BASE_URL =
+  configuredApiBaseUrl ||
+  (localHostnames.includes(window.location.hostname) ? 'http://localhost:3001' : '');
 
 export async function generateQuiz(input, questionCount, difficulty) {
   const controller = new AbortController();
